@@ -1,0 +1,4668 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>トランプゲーム「ドッスン」</title>
+
+<style>
+body {
+  background-color: #1b4332;
+  color: #ffffff;
+  font-family: sans-serif;
+  text-align: center;
+  margin: 0;
+  padding: 10px;
+}
+
+canvas {
+  background-color: #2d6a4f;
+  border: 4px solid #d8f3dc;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  touch-action: none;
+  cursor: pointer;
+}
+
+#setup-ui,
+#game-ui {
+  max-width: 800px;
+  margin: 10px auto;
+  padding: 15px;
+  border: 2px solid #d8f3dc;
+  border-radius: 10px;
+  background-color: #081c15;
+  box-sizing: border-box;
+}
+
+/* ルール説明モーダル用スタイル */
+#rule-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+}
+
+#rule-content {
+  background-color: #081c15;
+  border: 2px solid #d8f3dc;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 20px;
+  text-align: left;
+  box-sizing: border-box;
+  color: #d8f3dc;
+}
+
+button {
+  font-size: 14px;
+  padding: 8px 14px;
+  margin: 4px;
+  border: none;
+  border-radius: 6px;
+  background-color: #d8f3dc;
+  color: #1b4332;
+  font-weight: bold;
+  cursor: pointer;
+  position: relative;
+  z-index: 10;
+}
+
+button:hover {
+  background-color: #95d5b2;
+}
+
+button:disabled {
+  background-color: #555555;
+  color: #888888;
+  cursor: not-allowed;
+}
+
+.btn-selected {
+  background-color: #ffb703 !important;
+  color: #000 !important;
+}
+
+#log {
+  width: 100%;
+  max-width: 800px;
+  height: 80px;
+  margin: 10px auto;
+  background-color: #000000;
+  color: #d8f3dc;
+  text-align: left;
+  padding: 8px;
+  font-size: 13px;
+  overflow-y: scroll;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+.control-panel {
+  margin-top: 10px;
+  position: relative;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+#status-msg {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffb703;
+  margin: 8px 0;
+  min-height: 24px;
+}
+
+#best-move-msg {
+  font-size: 14px;
+  font-weight: bold;
+  color: #95d5b2;
+  margin: 4px 0 8px 0;
+  min-height: 20px;
+}
+
+.setup-step {
+  margin: 15px 0;
+  padding: 10px;
+  background: #1b4332;
+  border-radius: 8px;
+}
+
+/* スライダー用スタイル */
+.slider-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+
+.slider-container label {
+  font-weight: bold;
+  color: #d8f3dc;
+}
+
+.slider-container input[type="range"] {
+  width: 180px;
+  cursor: pointer;
+  background: #2d6a4f;
+  height: 4px;
+  border-radius: 2px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffb703;
+  cursor: pointer;
+}
+
+.slider-container input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffb703;
+  cursor: pointer;
+  border: none;
+}
+
+.slider-value {
+  min-width: 60px;
+  font-weight: bold;
+  color: #ffb703;
+}
+</style>
+</head>
+
+<body>
+
+<h3>トランプゲーム「ドッスン」</h3>
+
+<div id="setup-ui">
+  <h4>対戦モードを選択</h4>
+
+  <button id="mode-btn-0">人間 vs 人間</button>
+  <button id="mode-btn-1">人間 vs AI</button>
+  <button id="mode-btn-2">AI vs AI</button>
+  <button id="rule-btn" style="background:#4ea8de;color:#fff;">ルール説明</button>
+
+  <br><br>
+
+  <button
+    id="start-btn"
+    style="background:#ffb703;color:#000;display:none;font-size:18px;padding:12px 24px;"
+  >
+    配札＆選択フェーズへ
+  </button>
+</div>
+
+<!-- ルール説明モーダルウィンドウ -->
+<div id="rule-modal">
+  <div id="rule-content">
+    <h3>トランプゲーム「ドッスン」総合ルール</h3>
+    <hr style="border-color:#d8f3dc;">
+    
+    <h4>第一条　ゲームの準備</h4>
+    <p><b>フィールドの準備</b><br>
+    ・シャッフルしたトランプ1セットを場の左端または右端に置く（以後「山札」）。<br>
+    ・山札から3枚引き、山札の横に表向きで左→右（または右→左）の順に並べる。これをフィールドカードと呼ぶ。<br>
+    ・フィールドカードにジョーカーまたは同じランクのカードが含まれている場合は、そのカードを山札から引いたカードと交換して解消する。交換を行った場合は山札を再度シャッフルする。</p>
+    
+    <p><b>手札の準備</b><br>
+    ・山札から各プレイヤーに4枚ずつ引く。引いたカードは表向きで、フィールドカードより手前に並べる（これを手札と呼ぶ）。</p>
+
+    <p><b>先攻の決定</b><br>
+    ・任意の方法で決定者を選ぶ。決定者は以下のいずれかを選べる：<br>
+    　(a) 「先攻」か「後攻」かを選ぶ。<br>
+    　(b) 自分の手札を相手と入れ替えるかどうかを選ぶ（入れ替える／入れ替えない）。<br>
+    ・相手プレイヤーは、決定者が選ばなかった方（a または b）を選べる。</p>
+
+    <h4>第二条　ゲームの流れ（ターンとカードの出し方）</h4>
+    <p><b>基本</b><br>
+    ・先攻プレイヤーから交互に自分のターンを行う。自分のターンに手札から1枚を選びフィールドカードのうちいずれかの上に出せる。出せる条件は次の通り：<br>
+    　(c) 同じスート（マーク）<br>
+    　(d) 同じランク（数字）<br>
+    ・フィールドカードの上にカードを重ねて出した場合、その下にあったフィールドカードは効果を失い、以後復活しない（つまり消滅扱い）。</p>
+
+    <p><b>同じスートを出した場合（c）</b><br>
+    ・そのままターン終了。相手のターンになる。</p>
+
+    <p><b>同じランクを出した場合（d）</b><br>
+    ・出したプレイヤーは次のいずれかを選ぶ：<br>
+    　(e) 相手に山札から1枚引かせる（相手の手札に加える）。<br>
+    　(f) 自分の（ジョーカー以外の）手札から1枚をフィールドカードの最も端（山札から一番遠い側）の隣に追加する（そのカードが新たなフィールドカードになる）。<br>
+    ・(e)・(f)の処理を完了したあと、相手のターンになる。</p>
+
+    <p><b>ジョーカー</b><br>
+    ・ジョーカーはどのフィールドカードの上にも出せる。<br>
+    ・ジョーカーを出すと、ジョーカーの下にあったフィールドカードは消滅し、以後使用されない。<br>
+    ・最後の手札としてジョーカーを出しての勝利は認められない（第三条参照）。</p>
+
+    <p><b>ドッスン（同ランク処理の自動合成）</b><br>
+    ・フィールドカードの中に同じランクのカードが複数ある場合、山札に近い方のカードを山札から遠い方の同ランクのカードの上に重ねる。これをドッスンと呼ぶ。<br>
+    ・ドッスンは条件がそろった時点で、その状況を作り出したプレイヤーが必ず実行する（強制）。</p>
+
+    <p><b>パス</b><br>
+    ・出せるカードがある場合でもプレイヤーは「パス」を選択できる。パスを選んだ場合、山札から1枚引いて手札に加え、ターンを終了する。</p>
+
+    <p><b>出せるカードがない場合</b><br>
+    ・手札に出せるカードが1枚もない場合、山札から1枚引く。<br>
+    ・引いたカードが出せるものであれば、すぐに出してよい。<br>
+    ・引いたカードを出さずにパスすることもでき、その場合さらにカードを引く必要はない。<br>
+    ・引いたカードでも出せなかった場合はターン終了で相手のターンになる。</p>
+
+    <h4>第三条　勝敗・引き分け・反則</h4>
+    <p><b>勝利</b><br>
+    ・先に手札がすべてなくなったプレイヤーの勝利。ただし最後にジョーカーを出して手札を0にした場合は勝利とならない。</p>
+
+    <p><b>引き分け</b><br>
+    ・山札がすべてなくなり、そのターンまたは次の相手のターンで勝敗が決まらなかった場合。<br>
+    ・山札からカードを引かなければならない場面で、山札が存在しない場合。<br>
+    ・フィールドカードが0枚になった場合。</p>
+
+    <p><b>反則</b><br>
+    ・規則に明示的に禁止された行為、または規則に記載されていない不正なプレイを行った場合は原則反則負けとする。</p>
+    
+    <br>
+    <div style="text-align:center;">
+      <button id="close-rule-btn" style="background:#ffb703;color:#000;padding:10px 20px;">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="game-ui" style="display:none;">
+
+  <div id="status-msg"></div>
+  <div id="best-move-msg"></div>
+
+  <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+  <div id="log">ログメッセージ</div>
+
+  <!-- スライダー（探索数調整） -->
+  <div class="slider-container">
+    <label for="iterSlider">MCTS探索数:</label>
+    <input type="range" id="iterSlider" min="1000" max="20000" value="10000" step="100">
+    <span class="slider-value" id="iterValue">10000</span>
+  </div>
+
+  <div id="rule1-3-ui" class="setup-step" style="display:none;">
+    <div
+      id="rule1-3-desc"
+      style="font-size:16px;font-weight:bold;margin-bottom:10px;"
+    ></div>
+
+    <div id="rule1-3-buttons"></div>
+  </div>
+
+  <div class="control-panel">
+
+    <button id="pass-btn">パス</button>
+
+    <button id="first-btn">⏮ 最初に戻る</button>
+    <button id="undo-btn">◀ 1手戻る</button>
+    <button id="redo-btn">1手進む ▶</button>
+    <button id="last-btn">最後に進む ⏭</button>
+
+    <button
+      id="pause-btn"
+      style="display:none;background-color:#ffb703;color:#000;"
+    >
+      ⏸ 一時停止
+    </button>
+
+    <button
+      id="reset-btn"
+      style="background-color:#d90429;color:white;"
+    >
+      設定画面へ戻る
+    </button>
+
+  </div>
+</div>
+
+<script>
+
+const SUITS = {
+  Spade: '♠',
+  Heart: '♥',
+  Diamond: '♦',
+  Club: '♣'
+};
+
+const RANKS = [
+  'A','2','3','4','5','6','7',
+  '8','9','10','J','Q','K'
+];
+
+let config = {
+  mode: null
+};
+
+let deck = [];
+let field = [];
+let hands = [[], []];
+
+let currentPlayer = 0;
+let selectedIdx = -1;
+
+let isRunning = false;
+let animFrameId = null;
+
+let gameState = 'normal';
+let drawnCard = null;
+let consecutivePasses = 0;
+
+let deciderPlayer = 0;
+let firstChoiceChosen = null;
+let chosenFirstPlayer = null;
+let isHandsSwapped = null;
+
+let aiWinRateP1 = 0.5;
+let bestMoveText = "";
+
+let movingCardInfo = null;
+
+let isAiThinking = false;
+let isPaused = false;
+let isGameOver = false;
+let isHistoryLocked = false;
+
+let historyStack = [];
+let historyIndex = -1;
+let gameStartHistoryIndex = -1;
+
+/*
+==========================================================
+MCTS設定（スライダーで動的に変更）
+==========================================================
+*/
+
+const MCTS_EXPLORATION = Math.sqrt(2);
+
+// スライダー関連
+const iterSlider = document.getElementById('iterSlider');
+const iterValue = document.getElementById('iterValue');
+
+iterSlider.addEventListener('input', () => {
+  iterValue.textContent = iterSlider.value;
+});
+
+function getMCTS_ITERATIONS() {
+  return parseInt(iterSlider.value, 10);
+}
+
+
+/*
+==========================================================
+DOM
+==========================================================
+*/
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  document
+    .getElementById('mode-btn-0')
+    .addEventListener('click', () => selectMode(0));
+
+  document
+    .getElementById('mode-btn-1')
+    .addEventListener('click', () => selectMode(1));
+
+  document
+    .getElementById('mode-btn-2')
+    .addEventListener('click', () => selectMode(2));
+
+  // ルール説明モーダル開閉
+  const ruleModal = document.getElementById('rule-modal');
+  document
+    .getElementById('rule-btn')
+    .addEventListener('click', () => { ruleModal.style.display = 'flex'; });
+  document
+    .getElementById('close-rule-btn')
+    .addEventListener('click', () => { ruleModal.style.display = 'none'; });
+
+  document
+    .getElementById('start-btn')
+    .addEventListener('click', startSetupPhase);
+
+  document
+    .getElementById('pass-btn')
+    .addEventListener('click', humanPass);
+
+  document
+    .getElementById('first-btn')
+    .addEventListener('click', goToFirstMove);
+
+  document
+    .getElementById('undo-btn')
+    .addEventListener('click', undoMove);
+
+  document
+    .getElementById('redo-btn')
+    .addEventListener('click', redoMove);
+
+  document
+    .getElementById('last-btn')
+    .addEventListener('click', goToLastMove);
+
+  document
+    .getElementById('pause-btn')
+    .addEventListener('click', togglePause);
+
+  document
+    .getElementById('reset-btn')
+    .addEventListener('click', backToSetup);
+
+});
+
+
+/*
+==========================================================
+表示関連
+==========================================================
+*/
+
+function setStatusMsg(text) {
+  document.getElementById('status-msg').innerText = text || '';
+}
+
+function setBestMoveMsg(text) {
+  document.getElementById('best-move-msg').innerText = text || '';
+}
+
+function addLog(msg) {
+
+  const logEl = document.getElementById('log');
+
+  logEl.innerHTML += `<br>${msg}`;
+
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+
+/*
+==========================================================
+モード
+==========================================================
+*/
+
+function selectMode(m) {
+
+  config.mode = m;
+
+  [0,1,2].forEach(i => {
+    document
+      .getElementById(`mode-btn-${i}`)
+      .classList.remove('btn-selected');
+  });
+
+  document
+    .getElementById(`mode-btn-${m}`)
+    .classList.add('btn-selected');
+
+  document.getElementById('start-btn').style.display = "inline-block";
+}
+
+
+/*
+==========================================================
+初期化
+==========================================================
+*/
+
+function backToSetup() {
+
+  isRunning = false;
+  isAiThinking = false;
+  isPaused = false;
+  isGameOver = false;
+  isHistoryLocked = false;
+
+  gameStartHistoryIndex = -1;
+
+  gameState = 'normal';
+
+  movingCardInfo = null;
+
+  historyStack = [];
+  historyIndex = -1;
+
+  bestMoveText = "";
+
+  setBestMoveMsg("");
+
+  if (animFrameId) {
+
+    cancelAnimationFrame(animFrameId);
+
+    animFrameId = null;
+  }
+
+  document.getElementById('rule1-3-ui').style.display = "none";
+  document.getElementById('game-ui').style.display = "none";
+  document.getElementById('setup-ui').style.display = "block";
+}
+
+
+/*
+==========================================================
+カード位置
+==========================================================
+*/
+
+function getHandPos(playerIdx, cardIdx, totalCards) {
+
+  const count =
+    totalCards !== undefined
+      ? totalCards
+      : (hands[playerIdx] ? hands[playerIdx].length : 4);
+
+  let step = 70;
+
+  if (count >= 11) {
+
+    const maxAvailableWidth = 580;
+
+    step = Math.max(
+      20,
+      maxAvailableWidth / (count - 1)
+    );
+  }
+
+  return {
+    x: 50 + cardIdx * step,
+    y: playerIdx === 0 ? 360 : 40,
+    step
+  };
+}
+
+function updateHandPositions(playerIdx) {
+
+  const count = hands[playerIdx].length;
+
+  hands[playerIdx].forEach((c, idx) => {
+
+    const pos = getHandPos(
+      playerIdx,
+      idx,
+      count
+    );
+
+    c.targetX = pos.x;
+    c.targetY = pos.y;
+
+  });
+}
+
+function getFieldPos(fieldIdx) {
+
+  return {
+    x: 150 + fieldIdx * 75,
+    y: 200
+  };
+}
+
+function getDeckPos() {
+
+  return {
+    x: 670,
+    y: 200
+  };
+}
+
+
+/*
+==========================================================
+カード生成
+==========================================================
+*/
+
+function createCard(
+  suit,
+  symbol,
+  rank,
+  isJoker,
+  color,
+  initX = 0,
+  initY = 0
+) {
+
+  return {
+    suit,
+    symbol,
+    rank,
+    isJoker,
+    color,
+
+    x: initX,
+    y: initY,
+
+    targetX: initX,
+    targetY: initY
+  };
+}
+
+
+/*
+==========================================================
+履歴
+==========================================================
+*/
+
+function saveSnapshot(actionLogName = '') {
+
+  if (historyIndex < historyStack.length - 1) {
+
+    historyStack =
+      historyStack.slice(
+        0,
+        historyIndex + 1
+      );
+  }
+
+  const snapshot = {
+
+    deck: deck.map(c => ({...c})),
+    field: field.map(c => ({...c})),
+
+    hands: [
+      hands[0].map(c => ({...c})),
+      hands[1].map(c => ({...c}))
+    ],
+
+    currentPlayer,
+    gameState,
+    consecutivePasses,
+
+    deciderPlayer,
+    firstChoiceChosen,
+    chosenFirstPlayer,
+    isHandsSwapped,
+
+    aiWinRateP1,
+    bestMoveText,
+
+    isGameOver,
+
+    logHtml:
+      document.getElementById('log').innerHTML,
+
+    actionLogName
+  };
+
+  historyStack.push(snapshot);
+
+  historyIndex =
+    historyStack.length - 1;
+
+  updateControlButtons();
+}
+
+function loadSnapshot(index) {
+
+  if (
+    index < 0 ||
+    index >= historyStack.length
+  ) {
+    return;
+  }
+
+  if (
+    gameStartHistoryIndex !== -1 &&
+    index < gameStartHistoryIndex
+  ) {
+    index = gameStartHistoryIndex;
+  }
+
+  historyIndex = index;
+
+  const snap = historyStack[index];
+
+  deck = snap.deck.map(c => ({...c}));
+  field = snap.field.map(c => ({...c}));
+
+  hands = [
+    snap.hands[0].map(c => ({...c})),
+    snap.hands[1].map(c => ({...c}))
+  ];
+
+  currentPlayer = snap.currentPlayer;
+  gameState = snap.gameState;
+  consecutivePasses = snap.consecutivePasses;
+
+  deciderPlayer = snap.deciderPlayer;
+  firstChoiceChosen = snap.firstChoiceChosen;
+  chosenFirstPlayer = snap.chosenFirstPlayer;
+  isHandsSwapped = snap.isHandsSwapped;
+
+  aiWinRateP1 = snap.aiWinRateP1;
+  bestMoveText = snap.bestMoveText || "";
+
+  isGameOver = snap.isGameOver;
+
+  document.getElementById('log').innerHTML =
+    snap.logHtml;
+
+  movingCardInfo = null;
+  selectedIdx = -1;
+  isAiThinking = false;
+
+  [0,1].forEach(p => updateHandPositions(p));
+
+  field.forEach((c,i) => {
+
+    const pos = getFieldPos(i);
+
+    c.x = pos.x;
+    c.y = pos.y;
+
+    c.targetX = pos.x;
+    c.targetY = pos.y;
+  });
+
+  if (gameState === 'setup_rule1_3') {
+
+    if (firstChoiceChosen === null) {
+
+      runRule1_3Step1();
+
+    } else if (
+      chosenFirstPlayer === null &&
+      isHandsSwapped === null
+    ) {
+
+      runRule1_3Step2();
+
+    } else {
+
+      runRule1_3Step3();
+    }
+
+  } else {
+
+    document.getElementById(
+      'rule1-3-ui'
+    ).style.display = "none";
+  }
+
+  updateControlButtons();
+
+  if (gameState === 'normal') {
+    evaluateCurrentPositionAsync();
+  }
+
+  if (!isHistoryLocked) {
+
+    if (isGameOver) {
+
+      setStatusMsg(
+        "【対戦終了】盤面履歴の閲覧・操作が可能です（AI自動着手無効）"
+      );
+
+    } else {
+
+      checkTurn();
+    }
+
+  } else {
+
+    setStatusMsg(
+      "【閲覧モード】AIの自動着手は停止しています"
+    );
+  }
+}
+
+function goToFirstMove() {
+
+  if (historyIndex > 0) {
+    loadSnapshot(0);
+  }
+}
+
+function undoMove() {
+
+  if (historyIndex > 0) {
+    loadSnapshot(historyIndex - 1);
+  }
+}
+
+function redoMove() {
+
+  if (
+    historyIndex <
+    historyStack.length - 1
+  ) {
+    loadSnapshot(historyIndex + 1);
+  }
+}
+
+function goToLastMove() {
+
+  if (
+    historyIndex <
+    historyStack.length - 1
+  ) {
+    loadSnapshot(historyStack.length - 1);
+  }
+}
+
+
+/*
+==========================================================
+一時停止
+==========================================================
+*/
+
+function togglePause() {
+
+  if (isGameOver) return;
+
+  isPaused = !isPaused;
+
+  const btn =
+    document.getElementById('pause-btn');
+
+  if (isPaused) {
+
+    btn.innerText = "▶ 再開";
+    btn.style.backgroundColor = "#95d5b2";
+
+    setStatusMsg("⏸ ゲーム一時停止中");
+
+  } else {
+
+    btn.innerText = "⏸ 一時停止";
+    btn.style.backgroundColor = "#ffb703";
+
+    setStatusMsg("");
+
+    checkTurn();
+  }
+}
+
+
+/*
+==========================================================
+ボタン状態
+==========================================================
+*/
+
+function updateControlButtons() {
+
+  const firstBtn =
+    document.getElementById('first-btn');
+
+  const undoBtn =
+    document.getElementById('undo-btn');
+
+  const redoBtn =
+    document.getElementById('redo-btn');
+
+  const lastBtn =
+    document.getElementById('last-btn');
+
+  const passBtn =
+    document.getElementById('pass-btn');
+
+  const pauseBtn =
+    document.getElementById('pause-btn');
+
+  firstBtn.disabled =
+    historyIndex <= 0;
+
+  undoBtn.disabled =
+    historyIndex <= 0;
+
+  redoBtn.disabled =
+    historyIndex >= historyStack.length - 1;
+
+  lastBtn.disabled =
+    historyIndex >= historyStack.length - 1;
+
+  passBtn.disabled =
+    isGameOver ||
+    isAiThinking ||
+    (
+      config.mode === 1 &&
+      currentPlayer === 1
+    );
+
+  if (
+    config.mode === 2 &&
+    !isGameOver
+  ) {
+
+    pauseBtn.style.display =
+      "inline-block";
+
+  } else {
+
+    pauseBtn.style.display =
+      "none";
+  }
+}
+
+
+/*
+==========================================================
+ゲーム開始
+==========================================================
+*/
+
+function startSetupPhase() {
+
+  if (config.mode === null) return;
+
+  document.getElementById('setup-ui').style.display = "none";
+  document.getElementById('game-ui').style.display = "block";
+
+  document.getElementById('log').innerHTML =
+    "カードが配られました。手札と場札は表向きに並べられています。";
+
+  const deckPos = getDeckPos();
+
+  deck = [];
+
+  for (let s in SUITS) {
+
+    for (let r of RANKS) {
+
+      deck.push(
+        createCard(
+          s,
+          SUITS[s],
+          r,
+          false,
+          (s === 'Heart' || s === 'Diamond')
+            ? '#d90429'
+            : '#000000',
+          deckPos.x,
+          deckPos.y
+        )
+      );
+    }
+  }
+
+  deck.push(
+    createCard(
+      'Joker',
+      '★',
+      'JOKER',
+      true,
+      '#000000',
+      deckPos.x,
+      deckPos.y
+    )
+  );
+
+  deck.push(
+    createCard(
+      'Joker',
+      '★',
+      'JOKER',
+      true,
+      '#000000',
+      deckPos.x,
+      deckPos.y
+    )
+  );
+
+  shuffle(deck);
+
+  while (true) {
+
+    let tempField = [];
+    let ok = true;
+
+    for (let i = 0; i < 3; i++) {
+
+      if (deck.length === 0) {
+
+        ok = false;
+        break;
+      }
+
+      const card = deck.pop();
+
+      if (
+        card.isJoker ||
+        tempField.some(
+          c => c.rank === card.rank
+        )
+      ) {
+
+        deck.push(card);
+
+        while (tempField.length > 0) {
+          deck.push(tempField.pop());
+        }
+
+        shuffle(deck);
+
+        ok = false;
+        break;
+      }
+
+      tempField.push(card);
+    }
+
+    if (
+      ok &&
+      tempField.length === 3
+    ) {
+
+      field = tempField;
+
+      break;
+    }
+  }
+
+  field.forEach((c,i) => {
+
+    const pos = getFieldPos(i);
+
+    c.targetX = pos.x;
+    c.targetY = pos.y;
+
+    c.x = pos.x;
+    c.y = pos.y;
+  });
+
+  hands = [[],[]];
+
+  for (let i = 0; i < 4; i++) {
+
+    hands[0].push(deck.pop());
+    hands[1].push(deck.pop());
+  }
+
+  updateHandPositions(0);
+  updateHandPositions(1);
+
+  deciderPlayer =
+    Math.floor(Math.random() * 2);
+
+  firstChoiceChosen = null;
+  chosenFirstPlayer = null;
+  isHandsSwapped = null;
+
+  consecutivePasses = 0;
+
+  aiWinRateP1 = 0.5;
+  bestMoveText = "";
+
+  setBestMoveMsg("");
+
+  movingCardInfo = null;
+
+  isAiThinking = false;
+  isPaused = false;
+  isGameOver = false;
+  isHistoryLocked = false;
+
+  gameStartHistoryIndex = -1;
+
+  historyStack = [];
+  historyIndex = -1;
+
+  gameState = 'setup_rule1_3';
+  isRunning = true;
+
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId);
+  }
+
+  animFrameId =
+    requestAnimationFrame(loop);
+
+  addLog(
+    `【第一条3項】決定者に プレイヤー${deciderPlayer + 1} が選ばれました。`
+  );
+
+  saveSnapshot('初期配札');
+
+  runRule1_3Step1();
+}
+
+
+/*
+==========================================================
+第一条3項
+==========================================================
+*/
+
+function runRule1_3Step1() {
+
+  const isHuman =
+    config.mode === 0 ||
+    (
+      config.mode === 1 &&
+      deciderPlayer === 0
+    );
+
+  setStatusMsg(
+    `【第一条3項】決定者: P${deciderPlayer + 1} が最初の権利を選択中...`
+  );
+
+  const uiArea =
+    document.getElementById('rule1-3-ui');
+
+  const descArea =
+    document.getElementById('rule1-3-desc');
+
+  const btnArea =
+    document.getElementById('rule1-3-buttons');
+
+  uiArea.style.display = "block";
+
+  if (isHuman) {
+
+    descArea.innerText =
+      `【P${deciderPlayer + 1}（決定者）】どちらの権利を最初に行使（または相手に選ばせる）しますか？`;
+
+    btnArea.innerHTML = `
+      <button id="choice-a">
+        (a) 先攻・後攻を決める権利を自分が握る
+      </button>
+
+      <button id="choice-b">
+        (b) 手札交換の権利を自分が握る
+      </button>
+    `;
+
+    document
+      .getElementById('choice-a')
+      .onclick = () =>
+        handleDeciderChoiceType('order');
+
+    document
+      .getElementById('choice-b')
+      .onclick = () =>
+        handleDeciderChoiceType('swap');
+
+  } else {
+
+    descArea.innerText =
+      `P${deciderPlayer + 1} (AI 決定者) が思考中...`;
+
+    btnArea.innerHTML = "";
+
+    if (!isPaused) {
+
+      setTimeout(() => {
+
+        const choiceType =
+          aiEvaluateSetupChoiceMCTS(
+            'step1',
+            deciderPlayer
+          );
+
+        handleDeciderChoiceType(
+          choiceType
+        );
+
+      },100);
+    }
+  }
+}
+
+function handleDeciderChoiceType(type) {
+
+  firstChoiceChosen = type;
+
+  addLog(
+    `P${deciderPlayer + 1} は最初に「${type === 'order'
+      ? '(a)先攻・後攻権'
+      : '(b)手札交換権'}」を選択しました。`
+  );
+
+  saveSnapshot('権利選択');
+
+  runRule1_3Step2();
+}
+
+function runRule1_3Step2() {
+
+  const isDeciderHuman =
+    config.mode === 0 ||
+    (
+      config.mode === 1 &&
+      deciderPlayer === 0
+    );
+
+  const descArea =
+    document.getElementById('rule1-3-desc');
+
+  const btnArea =
+    document.getElementById('rule1-3-buttons');
+
+  if (firstChoiceChosen === 'order') {
+
+    setStatusMsg(
+      `【第一条3項】決定者: P${deciderPlayer + 1} が先攻・後攻を選択中`
+    );
+
+    if (isDeciderHuman) {
+
+      descArea.innerText =
+        `【P${deciderPlayer + 1}（決定者）】先攻か後攻を選択してください`;
+
+      btnArea.innerHTML = `
+        <button id="order-1">
+          自分が先攻
+        </button>
+
+        <button id="order-2">
+          自分が後攻（相手が先攻）
+        </button>
+      `;
+
+      document
+        .getElementById('order-1')
+        .onclick = () =>
+          handleOrderChoice(deciderPlayer);
+
+      document
+        .getElementById('order-2')
+        .onclick = () =>
+          handleOrderChoice(1 - deciderPlayer);
+
+    } else {
+
+      descArea.innerText =
+        `P${deciderPlayer + 1} (AI) が思考中...`;
+
+      btnArea.innerHTML = "";
+
+      if (!isPaused) {
+
+        setTimeout(() => {
+
+          const firstP =
+            aiEvaluateSetupChoiceMCTS(
+              'order',
+              deciderPlayer
+            );
+
+          handleOrderChoice(firstP);
+
+        },100);
+      }
+    }
+
+  } else {
+
+    setStatusMsg(
+      `【第一条3項】決定者: P${deciderPlayer + 1} が手札交換を選択中`
+    );
+
+    if (isDeciderHuman) {
+
+      descArea.innerText =
+        `【P${deciderPlayer + 1}（決定者）】相手と手札を入れ替えますか？`;
+
+      btnArea.innerHTML = `
+        <button id="swap-yes">
+          入れ替える
+        </button>
+
+        <button id="swap-no">
+          入れ替えない（そのまま）
+        </button>
+      `;
+
+      document
+        .getElementById('swap-yes')
+        .onclick = () =>
+          handleSwapChoice(true);
+
+      document
+        .getElementById('swap-no')
+        .onclick = () =>
+          handleSwapChoice(false);
+
+    } else {
+
+      descArea.innerText =
+        `P${deciderPlayer + 1} (AI) が思考中...`;
+
+      btnArea.innerHTML = "";
+
+      if (!isPaused) {
+
+        setTimeout(() => {
+
+          const doSwap =
+            aiEvaluateSetupChoiceMCTS(
+              'swap',
+              deciderPlayer
+            );
+
+          handleSwapChoice(doSwap);
+
+        },100);
+      }
+    }
+  }
+}
+
+function handleOrderChoice(firstP) {
+
+  chosenFirstPlayer = firstP;
+
+  addLog(
+    `先攻は P${firstP + 1} に決定しました。`
+  );
+
+  saveSnapshot('先後選択');
+
+  if (firstChoiceChosen === 'order') {
+
+    runRule1_3Step3();
+
+  } else {
+
+    finishRule1_3();
+  }
+}
+
+function handleSwapChoice(doSwap) {
+
+  isHandsSwapped = doSwap;
+
+  addLog(
+    doSwap
+      ? `手札の交換が選択されました。`
+      : `手札はそのまま（交換なし）が選択されました。`
+  );
+
+  saveSnapshot('手札交換選択');
+
+  if (firstChoiceChosen === 'swap') {
+
+    runRule1_3Step3();
+
+  } else {
+
+    finishRule1_3();
+  }
+}
+
+function runRule1_3Step3() {
+
+  const otherPlayer =
+    1 - deciderPlayer;
+
+  const isOtherHuman =
+    config.mode === 0 ||
+    (
+      config.mode === 1 &&
+      otherPlayer === 0
+    );
+
+  const descArea =
+    document.getElementById('rule1-3-desc');
+
+  const btnArea =
+    document.getElementById('rule1-3-buttons');
+
+  if (firstChoiceChosen === 'order') {
+
+    setStatusMsg(
+      `【第一条3項】P${otherPlayer + 1} が手札交換を選択中`
+    );
+
+    if (isOtherHuman) {
+
+      descArea.innerText =
+        `【P${otherPlayer + 1}】相手と手札を入れ替えますか？`;
+
+      btnArea.innerHTML = `
+        <button id="swap-yes-2">
+          入れ替える
+        </button>
+
+        <button id="swap-no-2">
+          入れ替えない（そのまま）
+        </button>
+      `;
+
+      document
+        .getElementById('swap-yes-2')
+        .onclick = () =>
+          handleSwapChoice(true);
+
+      document
+        .getElementById('swap-no-2')
+        .onclick = () =>
+          handleSwapChoice(false);
+
+    } else {
+
+      descArea.innerText =
+        `P${otherPlayer + 1} (AI) が思考中...`;
+
+      btnArea.innerHTML = "";
+
+      if (!isPaused) {
+
+        setTimeout(() => {
+
+          const doSwap =
+            aiEvaluateSetupChoiceMCTS(
+              'swap',
+              otherPlayer
+            );
+
+          handleSwapChoice(doSwap);
+
+        },100);
+      }
+    }
+
+  } else {
+
+    setStatusMsg(
+      `【第一条3項】P${otherPlayer + 1} が先攻・後攻を選択中`
+    );
+
+    if (isOtherHuman) {
+
+      descArea.innerText =
+        `【P${otherPlayer + 1}】先攻か後攻を選択してください`;
+
+      btnArea.innerHTML = `
+        <button id="order-1-2">
+          自分が先攻
+        </button>
+
+        <button id="order-2-2">
+          自分が後攻（相手が先攻）
+        </button>
+      `;
+
+      document
+        .getElementById('order-1-2')
+        .onclick = () =>
+          handleOrderChoice(otherPlayer);
+
+      document
+        .getElementById('order-2-2')
+        .onclick = () =>
+          handleOrderChoice(1 - otherPlayer);
+
+    } else {
+
+      descArea.innerText =
+        `P${otherPlayer + 1} (AI) が思考中...`;
+
+      btnArea.innerHTML = "";
+
+      if (!isPaused) {
+
+        setTimeout(() => {
+
+          const firstP =
+            aiEvaluateSetupChoiceMCTS(
+              'order',
+              otherPlayer
+            );
+
+          handleOrderChoice(firstP);
+
+        },100);
+      }
+    }
+  }
+}
+
+function finishRule1_3() {
+
+  document.getElementById(
+    'rule1-3-ui'
+  ).style.display = "none";
+
+  if (isHandsSwapped) {
+
+    const temp = hands[0];
+
+    hands[0] = hands[1];
+    hands[1] = temp;
+
+    [0,1].forEach(
+      p => updateHandPositions(p)
+    );
+
+    addLog(
+      `★お互いの手札を入れ替えました！`
+    );
+  }
+
+  currentPlayer = chosenFirstPlayer;
+
+  gameState = 'normal';
+
+  setStatusMsg('');
+
+  addLog(
+    `🎮 ゲーム開始！ 先攻: P${currentPlayer + 1}`
+  );
+
+  saveSnapshot('ゲーム開始');
+
+  gameStartHistoryIndex =
+    historyIndex;
+
+  checkTurn();
+}
+
+
+/*
+==========================================================
+ユーティリティ
+==========================================================
+*/
+
+function shuffle(array) {
+
+  for (
+    let i = array.length - 1;
+    i > 0;
+    i--
+  ) {
+
+    const j =
+      Math.floor(Math.random() * (i + 1));
+
+    [
+      array[i],
+      array[j]
+    ] = [
+      array[j],
+      array[i]
+    ];
+  }
+}
+
+function shouldShowAnalysis() {
+
+  return (
+    config.mode === 2 ||
+    isHistoryLocked
+  );
+}
+
+
+/*
+==========================================================
+現在局面評価
+==========================================================
+*/
+
+function evaluateCurrentPositionAsync() {
+
+  if (
+    gameState !== 'normal' ||
+    movingCardInfo
+  ) {
+    return;
+  }
+
+  const currentState =
+    createRealState();
+
+  const evaluatingPlayer =
+    currentPlayer;
+
+  const iterations =
+    getMCTS_ITERATIONS();
+
+  const result =
+    mctsSearch(
+      currentState,
+      iterations,
+      evaluatingPlayer
+    );
+
+  if (evaluatingPlayer === 0) {
+
+    aiWinRateP1 =
+      result.winRate;
+
+  } else {
+
+    aiWinRateP1 =
+      1 - result.winRate;
+  }
+
+  bestMoveText =
+    actionToText(
+      result.action,
+      evaluatingPlayer
+    );
+
+  if (shouldShowAnalysis()) {
+
+    setBestMoveMsg(
+      bestMoveText
+    );
+
+  } else {
+
+    setBestMoveMsg('');
+  }
+}
+
+
+/*
+==========================================================
+状態生成
+==========================================================
+*/
+
+function createRealState() {
+
+  return {
+
+    deck:
+      deck.map(c => ({...c})),
+
+    field:
+      field.map(c => ({...c})),
+
+    hands: [
+      hands[0].map(c => ({...c})),
+      hands[1].map(c => ({...c}))
+    ],
+
+    currentPlayer,
+
+    consecutivePasses,
+
+    winner: null,
+
+    pendingEffect: false
+  };
+}
+
+function cloneState(state) {
+
+  return {
+
+    deck:
+      state.deck.map(c => ({...c})),
+
+    field:
+      state.field.map(c => ({...c})),
+
+    hands: [
+      state.hands[0].map(c => ({...c})),
+      state.hands[1].map(c => ({...c}))
+    ],
+
+    currentPlayer:
+      state.currentPlayer,
+
+    consecutivePasses:
+      state.consecutivePasses,
+
+    winner:
+      state.winner !== undefined
+        ? state.winner
+        : null,
+
+    pendingEffect:
+      !!state.pendingEffect
+  };
+}
+
+
+/*
+==========================================================
+合法手
+==========================================================
+*/
+
+function getPlayableMoves(state) {
+
+  const actions = [];
+
+  const cp =
+    state.currentPlayer;
+
+  const pHand =
+    state.hands[cp];
+
+  pHand.forEach((hc,hi) => {
+
+    state.field.forEach((fc,fi) => {
+
+      if (
+        !fc.isJoker &&
+        (
+          hc.isJoker ||
+          hc.suit === fc.suit ||
+          hc.rank === fc.rank
+        )
+      ) {
+
+        actions.push({
+          type: 'play',
+          hi,
+          fi
+        });
+      }
+    });
+  });
+
+  return actions;
+}
+
+function getLegalActions(state) {
+
+  if (state.winner !== null) {
+    return [];
+  }
+
+  if (state.pendingEffect) {
+
+    const actions = [];
+
+    if (state.deck.length > 0) {
+
+      actions.push({
+        type: 'effect_e'
+      });
+    }
+
+    const cp =
+      state.currentPlayer;
+
+    state.hands[cp].forEach(
+      (card,hi) => {
+
+        if (!card.isJoker) {
+
+          actions.push({
+            type: 'effect_f',
+            hi
+          });
+        }
+      }
+    );
+
+    return actions;
+  }
+
+  const actions =
+    getPlayableMoves(state);
+
+  actions.push({
+    type: 'pass'
+  });
+
+  return actions;
+}
+
+
+/*
+==========================================================
+ドッスン
+==========================================================
+*/
+
+function simProcessDossun(state) {
+
+  let changed = true;
+
+  while (changed) {
+
+    changed = false;
+
+    for (
+      let i = 0;
+      i < state.field.length;
+      i++
+    ) {
+
+      if (state.field[i].isJoker) {
+        continue;
+      }
+
+      for (
+        let j = i + 1;
+        j < state.field.length;
+        j++
+      ) {
+
+        if (
+          !state.field[j].isJoker &&
+          state.field[i].rank ===
+          state.field[j].rank
+        ) {
+
+          state.field.splice(i,1);
+
+          changed = true;
+
+          break;
+        }
+      }
+
+      if (changed) break;
+    }
+  }
+}
+
+
+/*
+==========================================================
+勝敗処理
+==========================================================
+*/
+
+function checkSimWin(
+  state,
+  player,
+  lastCard
+) {
+
+  if (
+    state.hands[player].length === 0
+  ) {
+
+    state.winner =
+      lastCard && lastCard.isJoker
+        ? 1 - player
+        : player;
+
+    return true;
+  }
+
+  if (
+    state.field.length === 0 ||
+    state.field.every(
+      c => c.isJoker
+    )
+  ) {
+
+    state.winner = 'draw';
+
+    return true;
+  }
+
+  return false;
+}
+
+
+/*
+==========================================================
+MCTSでの1手適用
+==========================================================
+*/
+
+function applyAction(
+  state,
+  action
+) {
+
+  const cp =
+    state.currentPlayer;
+
+  const opp =
+    1 - cp;
+
+  if (
+    action.type === 'effect_e' ||
+    action.type === 'effect_f'
+  ) {
+
+    state.pendingEffect = false;
+
+    if (action.type === 'effect_e') {
+
+      if (state.deck.length > 0) {
+
+        const drawn =
+          state.deck.pop();
+
+        state.hands[opp].push(drawn);
+      }
+
+    } else {
+
+      const card =
+        state.hands[cp].splice(
+          action.hi,
+          1
+        )[0];
+
+      if (card) {
+
+        state.field.push(card);
+
+        simProcessDossun(state);
+
+        if (
+          checkSimWin(
+            state,
+            cp,
+            card
+          )
+        ) {
+
+          return;
+        }
+      }
+    }
+
+    state.currentPlayer = opp;
+
+    return;
+  }
+
+  if (action.type === 'play') {
+
+    state.consecutivePasses = 0;
+
+    const card =
+      state.hands[cp].splice(
+        action.hi,
+        1
+      )[0];
+
+    const target =
+      state.field[action.fi];
+
+    if (!card || !target) {
+      return;
+    }
+
+    state.field[action.fi] =
+      card;
+
+    simProcessDossun(state);
+
+    if (
+      checkSimWin(
+        state,
+        cp,
+        card
+      )
+    ) {
+
+      return;
+    }
+
+    if (
+      !card.isJoker &&
+      card.rank === target.rank
+    ) {
+
+      const effectActions = [];
+
+      if (state.deck.length > 0) {
+
+        effectActions.push({
+          type: 'effect_e'
+        });
+      }
+
+      state.hands[cp].forEach(
+        (c,idx) => {
+
+          if (!c.isJoker) {
+
+            effectActions.push({
+              type: 'effect_f',
+              hi: idx
+            });
+          }
+        }
+      );
+
+      if (
+        effectActions.length > 0
+      ) {
+
+        state.pendingEffect = true;
+
+        return;
+      }
+    }
+
+    state.currentPlayer = opp;
+
+    return;
+  }
+
+  if (action.type === 'pass') {
+
+    if (state.deck.length === 0) {
+
+      state.consecutivePasses++;
+
+      if (
+        state.consecutivePasses >= 2
+      ) {
+
+        state.winner = 'draw';
+
+        return;
+      }
+
+      state.currentPlayer = opp;
+
+      return;
+    }
+
+    const hadPlayable =
+      getPlayableMoves(state).length > 0;
+
+    const drawn =
+      state.deck.pop();
+
+    state.hands[cp].push(drawn);
+
+    state.consecutivePasses = 0;
+
+    if (hadPlayable) {
+
+      state.currentPlayer = opp;
+
+      return;
+    }
+
+    const canPlayDrawn =
+      state.field.some(
+        fc =>
+          !fc.isJoker &&
+          (
+            drawn.isJoker ||
+            drawn.suit === fc.suit ||
+            drawn.rank === fc.rank
+          )
+      );
+
+    if (canPlayDrawn) {
+
+      state.pendingDrawDecision = true;
+
+      return;
+    }
+
+    state.currentPlayer = opp;
+
+    return;
+  }
+}
+
+
+/*
+==========================================================
+pendingDrawDecision用合法手
+==========================================================
+*/
+
+function getLegalActionsExtended(state) {
+
+  if (state.winner !== null) {
+    return [];
+  }
+
+  if (state.pendingEffect) {
+
+    const actions = [];
+
+    if (state.deck.length > 0) {
+
+      actions.push({
+        type: 'effect_e'
+      });
+    }
+
+    const cp =
+      state.currentPlayer;
+
+    state.hands[cp].forEach(
+      (c,hi) => {
+
+        if (!c.isJoker) {
+
+          actions.push({
+            type: 'effect_f',
+            hi
+          });
+        }
+      }
+    );
+
+    return actions;
+  }
+
+  if (state.pendingDrawDecision) {
+
+    const cp =
+      state.currentPlayer;
+
+    const drawnIdx =
+      state.hands[cp].length - 1;
+
+    const actions = [
+      {
+        type: 'keep_drawn'
+      }
+    ];
+
+    state.field.forEach(
+      (fc,fi) => {
+
+        const drawn =
+          state.hands[cp][drawnIdx];
+
+        if (
+          !fc.isJoker &&
+          (
+            drawn.isJoker ||
+            drawn.suit === fc.suit ||
+            drawn.rank === fc.rank
+          )
+        ) {
+
+          actions.push({
+            type: 'play_drawn',
+            fi
+          });
+        }
+      }
+    );
+
+    return actions;
+  }
+
+  return getLegalActions(state);
+}
+
+
+/*
+==========================================================
+applyAction拡張
+==========================================================
+*/
+
+function applyActionExtended(
+  state,
+  action
+) {
+
+  const cp =
+    state.currentPlayer;
+
+  const opp =
+    1 - cp;
+
+  if (
+    action.type === 'keep_drawn'
+  ) {
+
+    state.pendingDrawDecision = false;
+
+    state.currentPlayer = opp;
+
+    return;
+  }
+
+  if (
+    action.type === 'play_drawn'
+  ) {
+
+    state.pendingDrawDecision = false;
+
+    const hIdx =
+      state.hands[cp].length - 1;
+
+    const card =
+      state.hands[cp].splice(
+        hIdx,
+        1
+      )[0];
+
+    const target =
+      state.field[action.fi];
+
+    if (!card || !target) {
+
+      state.currentPlayer = opp;
+
+      return;
+    }
+
+    state.field[action.fi] =
+      card;
+
+    simProcessDossun(state);
+
+    if (
+      checkSimWin(
+        state,
+        cp,
+        card
+      )
+    ) {
+
+      return;
+    }
+
+    if (
+      !card.isJoker &&
+      card.rank === target.rank
+    ) {
+
+      const effectActions = [];
+
+      if (state.deck.length > 0) {
+
+        effectActions.push({
+          type: 'effect_e'
+        });
+      }
+
+      state.hands[cp].forEach(
+        (c,idx) => {
+
+          if (!c.isJoker) {
+
+            effectActions.push({
+              type: 'effect_f',
+              hi: idx
+            });
+          }
+        }
+      );
+
+      if (
+        effectActions.length > 0
+      ) {
+
+        state.pendingEffect = true;
+
+        return;
+      }
+    }
+
+    state.currentPlayer = opp;
+
+    return;
+  }
+
+  applyAction(
+    state,
+    action
+  );
+}
+
+
+/*
+==========================================================
+ランダムプレイアウト（各プレイアウト開始時に山札をシャッフル）
+==========================================================
+*/
+
+function simulateRandomPlayout(
+  state
+) {
+
+  const simState =
+    cloneState(state);
+
+  // ★各プレイアウトで山札をシャッフル（順序の不確実性を考慮）
+  shuffle(simState.deck);
+
+  simState.pendingDrawDecision =
+    !!state.pendingDrawDecision;
+
+  const maxSteps = 250;
+
+  let steps = 0;
+
+  while (
+    simState.winner === null &&
+    steps < maxSteps
+  ) {
+
+    const actions =
+      getLegalActionsExtended(
+        simState
+      );
+
+    if (actions.length === 0) {
+      break;
+    }
+
+    const action =
+      actions[
+        Math.floor(
+          Math.random() *
+          actions.length
+        )
+      ];
+
+    applyActionExtended(
+      simState,
+      action
+    );
+
+    steps++;
+  }
+
+  if (
+    simState.winner === null
+  ) {
+
+    return 'draw';
+  }
+
+  return simState.winner;
+}
+
+
+/*
+==========================================================
+MCTS Node
+==========================================================
+*/
+
+class MCTSNode {
+
+  constructor(
+    state,
+    rootPlayer,
+    parent = null,
+    action = null
+  ) {
+
+    this.state = state;
+
+    this.rootPlayer =
+      rootPlayer;
+
+    this.parent = parent;
+
+    this.action = action;
+
+    this.children = [];
+
+    this.visits = 0;
+
+    this.wins = 0;
+
+    this.untriedActions =
+      getLegalActionsExtended(
+        state
+      );
+  }
+
+  isFullyExpanded() {
+
+    return (
+      this.untriedActions.length === 0
+    );
+  }
+
+  selectChild() {
+
+    let bestChild = null;
+
+    let bestValue =
+      this.state.currentPlayer ===
+      this.rootPlayer
+        ? -Infinity
+        : Infinity;
+
+    for (
+      const child of this.children
+    ) {
+
+      if (child.visits === 0) {
+        return child;
+      }
+
+      const winRate =
+        child.wins /
+        child.visits;
+
+      const exploration =
+        MCTS_EXPLORATION *
+        Math.sqrt(
+          Math.log(
+            Math.max(1,this.visits)
+          ) /
+          child.visits
+        );
+
+      let value;
+
+      if (
+        this.state.currentPlayer ===
+        this.rootPlayer
+      ) {
+
+        value =
+          winRate +
+          exploration;
+
+        if (value > bestValue) {
+          bestValue = value;
+          bestChild = child;
+        }
+
+      } else {
+
+        value =
+          winRate -
+          exploration;
+
+        if (value < bestValue) {
+          bestValue = value;
+          bestChild = child;
+        }
+      }
+    }
+
+    return bestChild;
+  }
+
+  expand() {
+
+    const randomIndex =
+      Math.floor(
+        Math.random() *
+        this.untriedActions.length
+      );
+
+    const action =
+      this.untriedActions.splice(
+        randomIndex,
+        1
+      )[0];
+
+    const nextState =
+      cloneState(this.state);
+
+    applyActionExtended(
+      nextState,
+      action
+    );
+
+    const child =
+      new MCTSNode(
+        nextState,
+        this.rootPlayer,
+        this,
+        action
+      );
+
+    this.children.push(child);
+
+    return child;
+  }
+}
+
+
+/*
+==========================================================
+MCTS本体（開始時のシャッフルは削除：各プレイアウトでシャッフルするため）
+==========================================================
+*/
+
+function mctsSearch(
+  rootState,
+  iterations,
+  rootPlayer = rootState.currentPlayer
+) {
+
+  // 状態を複製（山札の順番はそのまま。プレイアウト時にシャッフルされる）
+  const searchState =
+    cloneState(rootState);
+
+  const root =
+    new MCTSNode(
+      searchState,
+      rootPlayer
+    );
+
+  for (
+    let i = 0;
+    i < iterations;
+    i++
+  ) {
+
+    let node = root;
+
+    while (
+      node.isFullyExpanded() &&
+      node.children.length > 0 &&
+      node.state.winner === null
+    ) {
+
+      node =
+        node.selectChild();
+
+      if (!node) {
+        break;
+      }
+    }
+
+    if (
+      node &&
+      !node.isFullyExpanded() &&
+      node.state.winner === null
+    ) {
+
+      node =
+        node.expand();
+    }
+
+    let winner =
+      simulateRandomPlayout(
+        node.state
+      );
+
+    while (node !== null) {
+
+      node.visits++;
+
+      if (
+        winner === rootPlayer
+      ) {
+
+        node.wins += 1;
+
+      } else if (
+        winner === 'draw'
+      ) {
+
+        node.wins += 0.5;
+      }
+
+      node =
+        node.parent;
+    }
+  }
+
+  let bestChild = null;
+
+  let maxVisits = -1;
+
+  for (
+    const child of root.children
+  ) {
+
+    if (
+      child.visits > maxVisits
+    ) {
+
+      maxVisits =
+        child.visits;
+
+      bestChild =
+        child;
+    }
+  }
+
+  const winRate =
+    bestChild &&
+    bestChild.visits > 0
+      ? bestChild.wins /
+        bestChild.visits
+      : 0.5;
+
+  return {
+    action:
+      bestChild
+        ? bestChild.action
+        : null,
+
+    winRate
+  };
+}
+
+
+/*
+==========================================================
+アクション表示
+==========================================================
+*/
+
+function actionToText(
+  action,
+  player
+) {
+
+  if (!action) {
+    return "";
+  }
+
+  if (
+    action.type === 'play'
+  ) {
+
+    const card =
+      hands[player][action.hi];
+
+    const target =
+      field[action.fi];
+
+    const cardName =
+      card
+        ? (
+            card.isJoker
+              ? 'JOKER'
+              : card.symbol + card.rank
+          )
+        : '';
+
+    const targetName =
+      target
+        ? (
+            target.isJoker
+              ? 'JOKER'
+              : target.symbol + target.rank
+          )
+        : '';
+
+    return (
+      `P${player + 1}最善手案: ` +
+      `[ ${cardName} を ${targetName} の上に出す ]`
+    );
+  }
+
+  if (
+    action.type === 'effect_e'
+  ) {
+
+    return (
+      `P${player + 1}最善手案: ` +
+      `[ 効果(e) 相手に引かせる ]`
+    );
+  }
+
+  if (
+    action.type === 'effect_f'
+  ) {
+
+    const card =
+      hands[player][action.hi];
+
+    const cardName =
+      card
+        ? (
+            card.isJoker
+              ? 'JOKER'
+              : card.symbol + card.rank
+          )
+        : '';
+
+    return (
+      `P${player + 1}最善手案: ` +
+      `[ 効果(f) ${cardName}をフィールドに追加 ]`
+    );
+  }
+
+  if (
+    action.type === 'play_drawn'
+  ) {
+
+    return (
+      `P${player + 1}最善手案: ` +
+      `[ 引いたカードをフィールドに出す ]`
+    );
+  }
+
+  if (
+    action.type === 'keep_drawn'
+  ) {
+
+    return (
+      `P${player + 1}最善手案: ` +
+      `[ 引いたカードを手札に残す ]`
+    );
+  }
+
+  return (
+    `P${player + 1}最善手案: [ パス ]`
+  );
+}
+
+
+/*
+==========================================================
+AIターン
+==========================================================
+*/
+
+function aiTurn() {
+
+  if (
+    !isRunning ||
+    isGameOver ||
+    gameState !== 'normal' ||
+    movingCardInfo ||
+    isPaused ||
+    isHistoryLocked
+  ) {
+
+    isAiThinking = false;
+
+    return;
+  }
+
+  const currentState =
+    createRealState();
+
+  const aiPlayer =
+    currentPlayer;
+
+  const iterations =
+    getMCTS_ITERATIONS();
+
+  const result =
+    mctsSearch(
+      currentState,
+      iterations,
+      aiPlayer
+    );
+
+  if (aiPlayer === 0) {
+
+    aiWinRateP1 =
+      result.winRate;
+
+  } else {
+
+    aiWinRateP1 =
+      1 - result.winRate;
+  }
+
+  bestMoveText =
+    actionToText(
+      result.action,
+      aiPlayer
+    );
+
+  if (shouldShowAnalysis()) {
+
+    setBestMoveMsg(
+      bestMoveText
+    );
+
+  } else {
+
+    setBestMoveMsg('');
+  }
+
+  if (config.mode === 2) {
+
+    const p1Pct =
+      (aiWinRateP1 * 100)
+        .toFixed(1);
+
+    const p2Pct =
+      ((1 - aiWinRateP1) * 100)
+        .toFixed(1);
+
+    setStatusMsg(
+      `P1 期待勝率: ${p1Pct}% vs P2 期待勝率: ${p2Pct}%`
+    );
+
+  } else {
+
+    setStatusMsg('');
+  }
+
+  isAiThinking = false;
+
+  if (
+    result.action &&
+    result.action.type === 'play'
+  ) {
+
+    playMove(
+      result.action.hi,
+      result.action.fi
+    );
+
+    return;
+  }
+
+  executePass(
+    currentPlayer
+  );
+}
+
+
+/*
+==========================================================
+ターン確認
+==========================================================
+*/
+
+function checkTurn() {
+
+  if (isHistoryLocked) {
+    return;
+  }
+
+  if (
+    !isRunning ||
+    gameState !== 'normal' ||
+    movingCardInfo ||
+    isAiThinking ||
+    isPaused
+  ) {
+    return;
+  }
+
+  evaluateCurrentPositionAsync();
+
+  if (isGameOver) {
+    return;
+  }
+
+  if (
+    config.mode === 2 ||
+    (
+      config.mode === 1 &&
+      currentPlayer === 1
+    )
+  ) {
+
+    isAiThinking = true;
+
+    setStatusMsg(
+      `P${currentPlayer + 1} (AI) が深く思考中...`
+    );
+
+    setTimeout(
+      aiTurn,
+      100
+    );
+  }
+}
+
+
+/*
+==========================================================
+実ゲーム合法手
+==========================================================
+*/
+
+function getValidMoves(pHand) {
+
+  const validMoves = [];
+
+  pHand.forEach(
+    (hc,hi) => {
+
+      field.forEach(
+        (fc,fi) => {
+
+          if (
+            !fc.isJoker &&
+            (
+              hc.isJoker ||
+              hc.suit === fc.suit ||
+              hc.rank === fc.rank
+            )
+          ) {
+
+            validMoves.push({
+              hi,
+              fi
+            });
+          }
+        }
+      );
+    }
+  );
+
+  return validMoves;
+}
+
+
+/*
+==========================================================
+終了
+==========================================================
+*/
+
+function endGame(msg) {
+
+  isGameOver = true;
+
+  isHistoryLocked = true;
+
+  setStatusMsg(
+    "🏆 " + msg
+  );
+
+  saveSnapshot('対戦終了');
+
+  updateControlButtons();
+
+  evaluateCurrentPositionAsync();
+
+  setTimeout(
+    () => alert(msg),
+    50
+  );
+}
+
+
+/*
+==========================================================
+勝利判定
+==========================================================
+*/
+
+function checkWin(lastCardPlayed) {
+
+  if (
+    hands[currentPlayer].length === 0
+  ) {
+
+    if (
+      lastCardPlayed &&
+      lastCardPlayed.isJoker
+    ) {
+
+      const msg =
+        `反則！最後にジョーカーを出して上がったため、P${currentPlayer + 1} の反則負け！P${2 - currentPlayer} の勝利です！`;
+
+      addLog(
+        `❌ ${msg}`
+      );
+
+      endGame(msg);
+
+    } else {
+
+      const msg =
+        `プレイヤー${currentPlayer + 1}の勝利です！`;
+
+      addLog(
+        `🎉 ${msg}`
+      );
+
+      endGame(msg);
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+
+/*
+==========================================================
+カードプレイ
+==========================================================
+*/
+
+function playMove(
+  hIdx,
+  fIdx
+) {
+
+  if (
+    !isRunning ||
+    isGameOver ||
+    movingCardInfo
+  ) {
+    return;
+  }
+
+  const card =
+    hands[currentPlayer][hIdx];
+
+  const target =
+    field[fIdx];
+
+  if (!card || !target) {
+    return;
+  }
+
+  if (target.isJoker) {
+
+    addLog(
+      "※ジョーカーによって消滅した枠にはカードを出せません！"
+    );
+
+    return;
+  }
+
+  if (
+    !card.isJoker &&
+    card.suit !== target.suit &&
+    card.rank !== target.rank
+  ) {
+
+    addLog(
+      "※同じマークか同じ数字のカードしか出せません！"
+    );
+
+    return;
+  }
+
+  consecutivePasses = 0;
+
+  hands[currentPlayer].splice(
+    hIdx,
+    1
+  );
+
+  updateHandPositions(
+    currentPlayer
+  );
+
+  const fPos =
+    getFieldPos(fIdx);
+
+  card.targetX = fPos.x;
+  card.targetY = fPos.y;
+
+  movingCardInfo = {
+
+    card,
+
+    fIdx,
+
+    targetCard: target,
+
+    targetRank: target.rank
+  };
+
+  selectedIdx = -1;
+
+  addLog(
+    `P${currentPlayer + 1}が ${
+      card.isJoker
+        ? 'JOKER'
+        : card.symbol + card.rank
+    } を出しました`
+  );
+}
+
+
+/*
+==========================================================
+効果F
+==========================================================
+*/
+
+function executeEffectFWithIdx(
+  hIdx
+) {
+
+  const card =
+    hands[currentPlayer][hIdx];
+
+  if (!card || card.isJoker) {
+
+    addLog(
+      "ジョーカーはフィールドカードに追加できません！"
+    );
+
+    return;
+  }
+
+  hands[currentPlayer].splice(
+    hIdx,
+    1
+  );
+
+  updateHandPositions(
+    currentPlayer
+  );
+
+  const newPos =
+    getFieldPos(field.length);
+
+  card.targetX = newPos.x;
+  card.targetY = newPos.y;
+
+  field.push(card);
+
+  addLog(
+    `効果(f): 手札 ${card.symbol}${card.rank} をフィールドの端に追加しました`
+  );
+
+  processDossun();
+
+  if (checkWin(card)) {
+    return;
+  }
+
+  finishTurn();
+}
+
+
+/*
+==========================================================
+ドッスン処理
+==========================================================
+*/
+
+function checkPendingDossun() {
+
+  if (!movingCardInfo) {
+    return;
+  }
+
+  const card =
+    movingCardInfo.card;
+
+  if (
+    card.x !== card.targetX ||
+    card.y !== card.targetY
+  ) {
+    return;
+  }
+
+  const fIdx =
+    movingCardInfo.fIdx;
+
+  const targetRank =
+    movingCardInfo.targetRank;
+
+  field[fIdx] =
+    card;
+
+  const lastCard =
+    card;
+
+  movingCardInfo = null;
+
+  processDossun();
+
+  if (
+    checkWin(lastCard)
+  ) {
+    return;
+  }
+
+  if (
+    field.length === 0 ||
+    field.every(
+      c => c.isJoker
+    )
+  ) {
+
+    const msg =
+      `有効なフィールドカードが無くなったため引き分けです！`;
+
+    addLog(
+      `🤝 ${msg}`
+    );
+
+    endGame(msg);
+
+    return;
+  }
+
+  if (
+    !lastCard.isJoker &&
+    lastCard.rank === targetRank
+  ) {
+
+    addLog(
+      "★同数字成立！効果発動"
+    );
+
+    const isHuman =
+      config.mode === 0 ||
+      (
+        config.mode === 1 &&
+        currentPlayer === 0
+      );
+
+    if (isHuman) {
+
+      const choice =
+        confirm(
+          "【同数字効果】\n" +
+          "[OK] (e) 相手に山札から1枚引かせる\n" +
+          "[キャンセル] (f) 自分の手札から1枚をフィールドの端に追加する"
+        );
+
+      if (choice) {
+
+        executeEffectE();
+
+      } else {
+
+        const nonJokers =
+          hands[currentPlayer]
+            .filter(
+              c => !c.isJoker
+            );
+
+        if (
+          nonJokers.length > 0
+        ) {
+
+          gameState =
+            'selecting_field_add';
+
+          setStatusMsg(
+            "【同数字効果】フィールドの端に追加したい手札をタップして選んでください（ジョーカー不可）"
+          );
+
+          addLog(
+            "追加する手札を1枚選んでください。"
+          );
+
+        } else {
+
+          addLog(
+            "追加できる手札（通常札）が無いため、自動的に効果(e)を適用します。"
+          );
+
+          executeEffectE();
+        }
+      }
+
+      return;
+    }
+
+    const tempState =
+      createRealState();
+
+    tempState.pendingEffect =
+      true;
+
+    const iterations =
+      getMCTS_ITERATIONS();
+
+    const result =
+      mctsSearch(
+        tempState,
+        iterations,
+        currentPlayer
+      );
+
+    const action =
+      result.action;
+
+    if (
+      action &&
+      action.type === 'effect_e'
+    ) {
+
+      addLog(
+        `AI(P${currentPlayer + 1})は効果(e)を選択しました (MCTS)`
+      );
+
+      executeEffectE();
+
+      return;
+    }
+
+    if (
+      action &&
+      action.type === 'effect_f'
+    ) {
+
+      const targetCard =
+        hands[currentPlayer][action.hi];
+
+      if (targetCard) {
+
+        const foundIdx =
+          hands[currentPlayer].findIndex(
+            c =>
+              c.suit === targetCard.suit &&
+              c.rank === targetCard.rank &&
+              c.isJoker === targetCard.isJoker
+          );
+
+        if (foundIdx !== -1) {
+
+          addLog(
+            `AI(P${currentPlayer + 1})は効果(f)を選択しました (MCTS)`
+          );
+
+          executeEffectFWithIdx(
+            foundIdx
+          );
+
+          return;
+        }
+      }
+    }
+
+    addLog(
+      `AI(P${currentPlayer + 1})はデフォルトで効果(e)を選択`
+    );
+
+    executeEffectE();
+
+    return;
+  }
+
+  finishTurn();
+}
+
+
+/*
+==========================================================
+効果E
+==========================================================
+*/
+
+function executeEffectE() {
+
+  if (deck.length > 0) {
+
+    const drawn =
+      deck.pop();
+
+    const opp =
+      1 - currentPlayer;
+
+    hands[opp].push(drawn);
+
+    updateHandPositions(
+      opp
+    );
+
+    addLog(
+      `効果(e): P${2 - currentPlayer} に山札から1枚引かせました`
+    );
+
+  } else {
+
+    addLog(
+      `山札が存在しないため、効果(e)でカードを引かせられませんでした`
+    );
+  }
+
+  finishTurn();
+}
+
+
+/*
+==========================================================
+人間の効果F
+==========================================================
+*/
+
+function handleAddCardToField(
+  hIdx
+) {
+
+  const card =
+    hands[currentPlayer][hIdx];
+
+  if (!card || card.isJoker) {
+
+    alert(
+      "ジョーカーはフィールドカードに追加できません！"
+    );
+
+    return;
+  }
+
+  hands[currentPlayer].splice(
+    hIdx,
+    1
+  );
+
+  updateHandPositions(
+    currentPlayer
+  );
+
+  const newPos =
+    getFieldPos(field.length);
+
+  card.targetX = newPos.x;
+  card.targetY = newPos.y;
+
+  field.push(card);
+
+  addLog(
+    `効果(f): 手札 ${card.symbol}${card.rank} をフィールドの端に追加しました`
+  );
+
+  processDossun();
+
+  if (
+    checkWin(card)
+  ) {
+    return;
+  }
+
+  finishTurn();
+}
+
+
+/*
+==========================================================
+パス
+==========================================================
+*/
+
+function humanPass() {
+
+  if (
+    !isRunning ||
+    isGameOver ||
+    gameState !== 'normal' ||
+    movingCardInfo ||
+    (
+      config.mode === 1 &&
+      currentPlayer === 1
+    ) ||
+    isPaused
+  ) {
+
+    return;
+  }
+
+  executePass(
+    currentPlayer
+  );
+}
+
+function executePass(p) {
+
+  if (deck.length === 0) {
+
+    const msg =
+      `山札が空のため引き分けです！`;
+
+    addLog(
+      `🤝 ${msg}`
+    );
+
+    endGame(msg);
+
+    return;
+  }
+
+  const hadPlayableCardBeforePass =
+    getValidMoves(
+      hands[p]
+    ).length > 0;
+
+  drawnCard =
+    deck.pop();
+
+  hands[p].push(
+    drawnCard
+  );
+
+  updateHandPositions(p);
+
+  addLog(
+    `P${p + 1}がパスして1枚 (${
+      drawnCard.isJoker
+        ? 'JOKER'
+        : drawnCard.symbol + drawnCard.rank
+    }) を引きました`
+  );
+
+  const isPlayable =
+    field.some(
+      fc =>
+        !fc.isJoker &&
+        (
+          drawnCard.isJoker ||
+          drawnCard.suit === fc.suit ||
+          drawnCard.rank === fc.rank
+        )
+    );
+
+  const isHuman =
+    config.mode === 0 ||
+    (
+      config.mode === 1 &&
+      p === 0
+    );
+
+  if (
+    hadPlayableCardBeforePass
+  ) {
+
+    addLog(
+      "（第二条：出せるカードがある状態でパスしたため、引いたカードを手札に加えてターンを終了します）"
+    );
+
+    finishTurn();
+
+    return;
+  }
+
+  if (isHuman) {
+
+    if (isPlayable) {
+
+      setTimeout(() => {
+
+        const playNow =
+          confirm(
+            `手札に出せるカードが無いためパスしました。\n` +
+            `引いたカード [${
+              drawnCard.isJoker
+                ? 'JOKER'
+                : drawnCard.symbol + drawnCard.rank
+            }] は場に出せます！今すぐ出しますか？`
+          );
+
+        if (playNow) {
+
+          gameState =
+            'drawn_card_choice';
+
+          selectedIdx =
+            hands[p].length - 1;
+
+          setStatusMsg(
+            "出したい場所（場札）を選択してください"
+          );
+
+        } else {
+
+          addLog(
+            "引いたカードを手札に残してターンを終了しました"
+          );
+
+          finishTurn();
+        }
+
+      },200);
+
+    } else {
+
+      addLog(
+        "引いたカードは出せませんでした。ターンを終了します。"
+      );
+
+      finishTurn();
+    }
+
+    return;
+  }
+
+  const tempState =
+    createRealState();
+
+  if (isPlayable) {
+
+    const actions = [];
+
+    actions.push({
+      type: 'keep_drawn'
+    });
+
+    field.forEach(
+      (fc,fi) => {
+
+        if (
+          !fc.isJoker &&
+          (
+            drawnCard.isJoker ||
+            drawnCard.suit === fc.suit ||
+            drawnCard.rank === fc.rank
+          )
+        ) {
+
+          actions.push({
+            type: 'play_drawn',
+            fi
+          });
+        }
+      }
+    );
+
+    tempState.pendingDrawDecision =
+      true;
+
+    const iterations =
+      getMCTS_ITERATIONS();
+
+    const result =
+      mctsSearch(
+        tempState,
+        iterations,
+        p
+      );
+
+    const bestAction =
+      result.action;
+
+    if (
+      bestAction &&
+      bestAction.type === 'play_drawn'
+    ) {
+
+      const hIdx =
+        hands[p].length - 1;
+
+      const fIdx =
+        bestAction.fi;
+
+      if (
+        fIdx < field.length &&
+        !field[fIdx].isJoker
+      ) {
+
+        addLog(
+          `P${p + 1}(AI)は引いたカードを出すことを選択しました (MCTS)`
+        );
+
+        playMove(
+          hIdx,
+          fIdx
+        );
+
+        return;
+      }
+    }
+
+    addLog(
+      `P${p + 1}(AI)は引いたカードを手札に残すことを選択しました (MCTS)`
+    );
+
+    finishTurn();
+
+    return;
+  }
+
+  finishTurn();
+}
+
+
+/*
+==========================================================
+ターン終了
+==========================================================
+*/
+
+function finishTurn() {
+
+  if (
+    !isRunning ||
+    isGameOver
+  ) {
+    return;
+  }
+
+  gameState =
+    'normal';
+
+  setStatusMsg('');
+
+  currentPlayer =
+    1 - currentPlayer;
+
+  saveSnapshot(
+    `P${currentPlayer + 1}のターン`
+  );
+
+  checkTurn();
+}
+
+
+/*
+==========================================================
+セットアップAI
+==========================================================
+*/
+
+function aiEvaluateSetupChoiceMCTS(
+  type,
+  aiPlayer
+) {
+
+  const evaluateOption =
+    (
+      testSwap,
+      testFirstP
+    ) => {
+
+      let simHands = [
+        hands[0].map(c => ({...c})),
+        hands[1].map(c => ({...c}))
+      ];
+
+      if (testSwap) {
+
+        const temp =
+          simHands[0];
+
+        simHands[0] =
+          simHands[1];
+
+        simHands[1] =
+          temp;
+      }
+
+      const simState = {
+
+        deck:
+          deck.map(c => ({...c})),
+
+        field:
+          field.map(c => ({...c})),
+
+        hands:
+          simHands,
+
+        currentPlayer:
+          testFirstP,
+
+        consecutivePasses: 0,
+
+        winner: null,
+
+        pendingEffect: false
+      };
+
+      const iterations =
+        getMCTS_ITERATIONS();
+
+      const result =
+        mctsSearch(
+          simState,
+          iterations,
+          aiPlayer
+        );
+
+      return result.winRate;
+    };
+
+
+  const currentSwap =
+    isHandsSwapped === true;
+
+  const currentFirstP =
+    chosenFirstPlayer !== null
+      ? chosenFirstPlayer
+      : aiPlayer;
+
+  const otherPlayer =
+    1 - deciderPlayer;
+
+
+  if (type === 'step1') {
+
+    const bestOrderEval = (() => {
+      const selfFirstWin = evaluateOption(currentSwap, aiPlayer);
+      const oppFirstWin = evaluateOption(currentSwap, otherPlayer);
+      const bestFirstP = selfFirstWin >= oppFirstWin ? aiPlayer : otherPlayer;
+      
+      const winSwapYes = evaluateOption(true, bestFirstP);
+      const winSwapNo = evaluateOption(false, bestFirstP);
+      return Math.max(winSwapYes, winSwapNo);
+    })();
+
+    const bestSwapEval = (() => {
+      const winSwapYes = evaluateOption(true, currentFirstP);
+      const winSwapNo = evaluateOption(false, currentFirstP);
+      const bestSwap = winSwapYes >= winSwapNo;
+      
+      const selfFirstWin = evaluateOption(bestSwap, aiPlayer);
+      const oppFirstWin = evaluateOption(bestSwap, otherPlayer);
+      return Math.max(selfFirstWin, oppFirstWin);
+    })();
+
+    return (
+      bestOrderEval >= bestSwapEval
+        ? 'order'
+        : 'swap'
+    );
+  }
+
+
+  if (type === 'order') {
+
+    const winSelfFirst =
+      evaluateOption(
+        currentSwap,
+        aiPlayer
+      );
+
+    const winOppFirst =
+      evaluateOption(
+        currentSwap,
+        1 - aiPlayer
+      );
+
+    return (
+      winSelfFirst >= winOppFirst
+        ? aiPlayer
+        : 1 - aiPlayer
+    );
+  }
+
+
+  if (type === 'swap') {
+
+    const winWithSwap =
+      evaluateOption(
+        true,
+        currentFirstP
+      );
+
+    const winNoSwap =
+      evaluateOption(
+        false,
+        currentFirstP
+      );
+
+    return (
+      winWithSwap >
+      winNoSwap
+    );
+  }
+}
+
+
+/*
+==========================================================
+実ゲームのドッスン
+==========================================================
+*/
+
+function processDossun() {
+
+  let changed = true;
+
+  while (changed) {
+
+    changed = false;
+
+    for (
+      let i = 0;
+      i < field.length;
+      i++
+    ) {
+
+      if (
+        field[i].isJoker
+      ) {
+        continue;
+      }
+
+      for (
+        let j = i + 1;
+        j < field.length;
+        j++
+      ) {
+
+        if (
+          !field[j].isJoker &&
+          field[i].rank ===
+          field[j].rank
+        ) {
+
+          addLog(
+            `★ドッスン発動！ 山札に近い ${field[i].symbol}${field[i].rank} を右側の同ランクカードに重ねて消滅させました。`
+          );
+
+          const targetPos =
+            getFieldPos(j);
+
+          field[i].targetX =
+            targetPos.x;
+
+          field[i].targetY =
+            targetPos.y;
+
+          field.splice(i,1);
+
+          changed = true;
+
+          break;
+        }
+      }
+
+      if (changed) {
+        break;
+      }
+    }
+  }
+
+  field.forEach(
+    (c,idx) => {
+
+      const pos =
+        getFieldPos(idx);
+
+      c.targetX =
+        pos.x;
+
+      c.targetY =
+        pos.y;
+    }
+  );
+}
+
+
+/*
+==========================================================
+Canvas
+==========================================================
+*/
+
+const canvas =
+  document.getElementById(
+    'gameCanvas'
+  );
+
+const ctx =
+  canvas.getContext('2d');
+
+
+canvas.addEventListener(
+  'pointerdown',
+  (e) => {
+
+    if (
+      !isRunning ||
+      isGameOver ||
+      movingCardInfo ||
+      isAiThinking ||
+      isPaused
+    ) {
+      return;
+    }
+
+    if (
+      gameState ===
+      'setup_rule1_3'
+    ) {
+      return;
+    }
+
+    if (
+      config.mode === 1 &&
+      currentPlayer === 1
+    ) {
+      return;
+    }
+
+    const rect =
+      canvas.getBoundingClientRect();
+
+    const x =
+      (
+        e.clientX -
+        rect.left
+      ) *
+      (800 / rect.width);
+
+    const y =
+      (
+        e.clientY -
+        rect.top
+      ) *
+      (500 / rect.height);
+
+    const hY =
+      currentPlayer === 0
+        ? 360
+        : 40;
+
+    if (
+      gameState ===
+      'selecting_field_add'
+    ) {
+
+      hands[currentPlayer]
+        .forEach(
+          (c,i) => {
+
+            const pos =
+              getHandPos(
+                currentPlayer,
+                i,
+                hands[currentPlayer].length
+              );
+
+            const cardW =
+              (
+                hands[currentPlayer].length >= 11 &&
+                i <
+                hands[currentPlayer].length - 1
+              )
+                ? pos.step
+                : 60;
+
+            if (
+              x >= pos.x &&
+              x <= pos.x + cardW &&
+              y >= hY &&
+              y <= hY + 85
+            ) {
+
+              handleAddCardToField(i);
+            }
+          }
+        );
+
+      return;
+    }
+
+    if (
+      gameState ===
+      'drawn_card_choice'
+    ) {
+
+      field.forEach(
+        (f,i) => {
+
+          const fX =
+            150 + i * 75;
+
+          if (
+            x >= fX &&
+            x <= fX + 60 &&
+            y >= 200 &&
+            y <= 285
+          ) {
+
+            gameState =
+              'normal';
+
+            playMove(
+              selectedIdx,
+              i
+            );
+          }
+        }
+      );
+
+      return;
+    }
+
+    if (
+      gameState ===
+      'normal'
+    ) {
+
+      let clickedIdx = -1;
+
+      hands[currentPlayer]
+        .forEach(
+          (c,i) => {
+
+            const pos =
+              getHandPos(
+                currentPlayer,
+                i,
+                hands[currentPlayer].length
+              );
+
+            const cardW =
+              (
+                hands[currentPlayer].length >= 11 &&
+                i <
+                hands[currentPlayer].length - 1
+              )
+                ? pos.step
+                : 60;
+
+            if (
+              x >= pos.x &&
+              x <= pos.x + cardW &&
+              y >= hY &&
+              y <= hY + 85
+            ) {
+
+              clickedIdx = i;
+            }
+          }
+        );
+
+      if (
+        clickedIdx !== -1
+      ) {
+
+        if (
+          selectedIdx === -1
+        ) {
+
+          selectedIdx =
+            clickedIdx;
+
+        } else if (
+          selectedIdx ===
+          clickedIdx
+        ) {
+
+          selectedIdx = -1;
+
+        } else {
+
+          const hand =
+            hands[currentPlayer];
+
+          [
+            hand[selectedIdx],
+            hand[clickedIdx]
+          ] = [
+            hand[clickedIdx],
+            hand[selectedIdx]
+          ];
+
+          selectedIdx = -1;
+
+          updateHandPositions(
+            currentPlayer
+          );
+        }
+
+        return;
+      }
+
+      if (
+        selectedIdx !== -1
+      ) {
+
+        field.forEach(
+          (f,i) => {
+
+            const fX =
+              150 + i * 75;
+
+            if (
+              x >= fX &&
+              x <= fX + 60 &&
+              y >= 200 &&
+              y <= 285
+            ) {
+
+              playMove(
+                selectedIdx,
+                i
+              );
+            }
+          }
+        );
+      }
+    }
+  }
+);
+
+
+/*
+==========================================================
+アニメーション
+==========================================================
+*/
+
+function updateCardPosition(card) {
+
+  if (
+    card.x === undefined
+  ) {
+
+    card.x =
+      card.targetX;
+  }
+
+  if (
+    card.y === undefined
+  ) {
+
+    card.y =
+      card.targetY;
+  }
+
+  const dx =
+    card.targetX -
+    card.x;
+
+  const dy =
+    card.targetY -
+    card.y;
+
+  if (
+    Math.abs(dx) < 0.5 &&
+    Math.abs(dy) < 0.5
+  ) {
+
+    card.x =
+      card.targetX;
+
+    card.y =
+      card.targetY;
+
+  } else {
+
+    card.x +=
+      dx * 0.25;
+
+    card.y +=
+      dy * 0.25;
+  }
+}
+
+
+/*
+==========================================================
+描画ループ
+==========================================================
+*/
+
+function loop() {
+
+  ctx.clearRect(
+    0,
+    0,
+    800,
+    500
+  );
+
+  const isRevealedAll =
+    gameState ===
+    'setup_rule1_3';
+
+  if (
+    gameState === 'normal' &&
+    shouldShowAnalysis()
+  ) {
+
+    drawWinRateBar();
+  }
+
+  [0,1].forEach(
+    p =>
+      updateHandPositions(p)
+  );
+
+  ctx.fillStyle =
+    '#ffffff';
+
+  ctx.font =
+    '14px sans-serif';
+
+  ctx.fillText(
+    `P2 (上段) 手札: ${hands[1].length}枚 ${
+      (
+        !isRevealedAll &&
+        currentPlayer === 1 &&
+        !isGameOver
+      )
+        ? '← ターン'
+        : ''
+    }`,
+    50,
+    30
+  );
+
+  ctx.fillText(
+    `P1 (下段) 手札: ${hands[0].length}枚 ${
+      (
+        !isRevealedAll &&
+        currentPlayer === 0 &&
+        !isGameOver
+      )
+        ? '← ターン'
+        : ''
+    }`,
+    50,
+    350
+  );
+
+  ctx.fillText(
+    `山札: ${deck.length}枚 (左端)`,
+    670,
+    240
+  );
+
+  if (
+    !isGameOver &&
+    gameState === 'normal' &&
+    (
+      config.mode === 0 ||
+      (
+        config.mode === 1 &&
+        currentPlayer === 0
+      )
+    )
+  ) {
+
+    ctx.fillStyle =
+      '#95d5b2';
+
+    ctx.font =
+      '12px sans-serif';
+
+    ctx.fillText(
+      '※手札をクリックで選択 → 別の手札をクリックで入れ替え',
+      50,
+      480
+    );
+  }
+
+  hands[1].forEach(
+    (c,i) => {
+
+      updateCardPosition(c);
+
+      drawCard(
+        c,
+        c.x,
+        c.y,
+        currentPlayer === 1 &&
+        selectedIdx === i
+      );
+    }
+  );
+
+  hands[0].forEach(
+    (c,i) => {
+
+      updateCardPosition(c);
+
+      drawCard(
+        c,
+        c.x,
+        c.y,
+        currentPlayer === 0 &&
+        selectedIdx === i
+      );
+    }
+  );
+
+  field.forEach(
+    c => {
+
+      updateCardPosition(c);
+
+      drawCard(
+        c,
+        c.x,
+        c.y,
+        false
+      );
+    }
+  );
+
+  if (movingCardInfo) {
+
+    const mc =
+      movingCardInfo.card;
+
+    updateCardPosition(mc);
+
+    drawCard(
+      mc,
+      mc.x,
+      mc.y,
+      false
+    );
+  }
+
+  checkPendingDossun();
+
+  if (isRunning) {
+
+    animFrameId =
+      requestAnimationFrame(loop);
+  }
+}
+
+
+/*
+==========================================================
+勝率バー
+==========================================================
+*/
+
+function drawWinRateBar() {
+
+  const barX = 250;
+  const barY = 10;
+  const barW = 300;
+  const barH = 16;
+
+  const p1Ratio =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        aiWinRateP1
+      )
+    );
+
+  const p2Ratio =
+    1 - p1Ratio;
+
+  const p1W =
+    barW * p1Ratio;
+
+  const p2W =
+    barW * p2Ratio;
+
+  ctx.save();
+
+  ctx.fillStyle =
+    '#111111';
+
+  ctx.fillRect(
+    barX - 2,
+    barY - 2,
+    barW + 4,
+    barH + 4
+  );
+
+  ctx.fillStyle =
+    '#0077b6';
+
+  ctx.fillRect(
+    barX,
+    barY,
+    p1W,
+    barH
+  );
+
+  ctx.fillStyle =
+    '#d90429';
+
+  ctx.fillRect(
+    barX + p1W,
+    barY,
+    p2W,
+    barH
+  );
+
+  ctx.strokeStyle =
+    '#ffffff';
+
+  ctx.lineWidth = 1;
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    barX + barW / 2,
+    barY
+  );
+
+  ctx.lineTo(
+    barX + barW / 2,
+    barY + barH
+  );
+
+  ctx.stroke();
+
+  ctx.fillStyle =
+    '#ffffff';
+
+  ctx.font =
+    'bold 11px sans-serif';
+
+  ctx.textAlign =
+    'left';
+
+  ctx.fillText(
+    `P1 ${Math.round(p1Ratio * 100)}%`,
+    barX + 5,
+    barY + 12
+  );
+
+  ctx.textAlign =
+    'right';
+
+  ctx.fillText(
+    `P2 ${Math.round(p2Ratio * 100)}%`,
+    barX + barW - 5,
+    barY + 12
+  );
+
+  ctx.restore();
+}
+
+
+/*
+==========================================================
+カード描画
+==========================================================
+*/
+
+function drawCard(
+  c,
+  x,
+  y,
+  isSelected
+) {
+
+  ctx.save();
+
+  if (
+    c.isJoker &&
+    y === 200
+  ) {
+
+    ctx.fillStyle =
+      '#6c757d';
+
+    ctx.strokeStyle =
+      '#343a40';
+
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+
+    ctx.roundRect(
+      x,
+      y,
+      60,
+      85,
+      6
+    );
+
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle =
+      '#d90429';
+
+    ctx.font =
+      'bold 28px sans-serif';
+
+    ctx.fillText(
+      '✕',
+      x + 18,
+      y + 52
+    );
+
+    ctx.restore();
+
+    return;
+  }
+
+  ctx.fillStyle =
+    '#ffffff';
+
+  ctx.strokeStyle =
+    isSelected
+      ? '#ffb703'
+      : '#000000';
+
+  ctx.lineWidth =
+    isSelected
+      ? 4
+      : 1;
+
+  ctx.beginPath();
+
+  ctx.roundRect(
+    x,
+    y,
+    60,
+    85,
+    6
+  );
+
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle =
+    c.color;
+
+  ctx.font =
+    'bold 16px sans-serif';
+
+  if (c.isJoker) {
+
+    ctx.fillText(
+      'JOKER',
+      x + 2,
+      y + 48
+    );
+
+  } else {
+
+    ctx.fillText(
+      c.symbol,
+      x + 8,
+      y + 24
+    );
+
+    ctx.fillText(
+      c.rank,
+      x + 8,
+      y + 55
+    );
+  }
+
+  ctx.restore();
+}
+
+</script>
+
+</body>
+</html>
